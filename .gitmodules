@@ -1,0 +1,9 @@
+[submodule "pytorch-cifar-models"]
+	path = pytorch-cifar-models
+	url = https://github.com/chenyaofo/pytorch-cifar-models.git
+[submodule "slimmable_networks"]
+	path = slimmable_networks
+	url = https://github.com/JiahuiYu/slimmable_networks.git
+[submodule "yolov5"]
+	path = yolov5
+	url = https://github.com/ultralytics/yolov5.git
