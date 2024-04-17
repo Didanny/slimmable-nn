@@ -24,7 +24,8 @@ def get_val_transforms(mean: Sequence[float], std: list[float]):
         T.Normalize(mean=mean, std=std)
     ])
 
-def _cifar(root: Path, image_size: tuple[int], mean: list[float], std: list[float], batch_size: int, num_workers: int, dataset_builder: data.DataLoader, **kwargs):
+def _cifar(root: Path, image_size: tuple[int], mean: list[float], std: list[float], batch_size: int, num_workers: int, dataset_builder: data.DataLoader, **kwargs) \
+    -> tuple[data.DataLoader]:
     train_transforms = get_train_transforms(mean, std)
     val_transforms = get_val_transforms(mean, std)
 
@@ -56,7 +57,7 @@ def cifar10(batch_size: Optional[int] = 256):
         std=[0.2023, 0.1994, 0.2010],
         batch_size=batch_size,
         num_workers=2,
-        dataset_builder=CIFAR100,
+        dataset_builder=CIFAR10,
     )
 
 def cifar100(batch_size: Optional[int] = 256):

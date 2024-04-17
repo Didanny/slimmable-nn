@@ -40,7 +40,7 @@ class VGG(nn.Module):
             nn.Dropout(),
             USLinear(512, 512),
             nn.Dropout(),
-            USLinear(512, num_classes)
+            USLinear(512, num_classes, us=[True, False])
         )
         # self.classifier = nn.Sequential(
         #     nn.Linear(512, 512),
@@ -66,7 +66,7 @@ class VGG(nn.Module):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
+            elif isinstance(m, USBatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
@@ -77,7 +77,18 @@ class VGG(nn.Module):
 def make_layers(cfg: List[Union[str, int]], batch_norm: bool = False) -> nn.Sequential:
     layers: List[nn.Module] = []
     in_channels = 3
-    for v in cfg:
+    # First layer
+    v = cfg[0]
+    v = cast(int, v)
+    conv2d = USConv2d(in_channels, v, kernel_size=3, padding=1, us=[False, True])
+    if batch_norm:
+        layers += [conv2d, USBatchNorm2d(v), nn.ReLU(inplace=True)]
+    else:
+        layers += [conv2d, nn.ReLU(inplace=True)]
+    in_channels = v
+
+    # Rest of the layers
+    for v in cfg[1:]:
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
