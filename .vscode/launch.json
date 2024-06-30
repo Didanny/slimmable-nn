@@ -17,7 +17,7 @@
             "request": "launch",
             "program": "train_cifar.py",
             "console": "integratedTerminal",
-            "args": ["--model", "cifar10_usresnet20", "--dataset", "cifar10"]
+            "args": ["--model", "cifar10_usresnet20", "--dataset", "cifar10", "--inplace-distill"]
         },
     ]
 }
