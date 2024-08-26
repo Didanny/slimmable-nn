@@ -19,5 +19,13 @@
             "console": "integratedTerminal",
             "args": ["--model", "cifar10_usresnet20", "--dataset", "cifar10", "--inplace-distill"]
         },
+        {
+            "name": "usvgg11",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_cifar.py",
+            "console": "integratedTerminal",
+            "args": ["--model", "cifar10_usvgg11_bn", "--dataset", "cifar10", "--inplace-distill"]
+        },
     ]
 }

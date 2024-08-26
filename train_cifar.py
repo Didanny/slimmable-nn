@@ -219,7 +219,7 @@ def main(opt: argparse.Namespace):
     
     # Set up tensorboard summary writer
     # TODO: Create more comprehensive automated commenting
-    writer = SummaryWriter(comment=f'_{opt.model}')
+    writer = SummaryWriter(comment=f'_{opt.model}_{opt.dataset}')
     save_dir = Path(writer.log_dir)
     
     # Directories
