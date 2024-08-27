@@ -139,7 +139,7 @@ class Interleave(nn.Module):
     def forward(self, x):
         num_inputs = len(x)
         num_channels = x[0].shape[self.dim]
-        return torch.cat([torch.cat([x[i][:,j,:,:] for i in range(num_inputs)]) for j in range(num_channels)])
+        return torch.cat([torch.cat([x[i][:,j,:,:].unsqueeze(dim=self.dim) for i in range(num_inputs)], dim=self.dim) for j in range(num_channels)], dim=self.dim)
 
 class Detect(nn.Module):
     # YOLOv5 Detect head for detection models
