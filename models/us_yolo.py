@@ -18,6 +18,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
+
 from slimmable_networks.models.slimmable_ops import USBatchNorm2d, USConv2d, USLinear
 
 class test: pass
@@ -80,14 +81,22 @@ class USConv(nn.Module):
     # Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)
     default_act = nn.SiLU()  # default activation
 
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True, us=[True, True]):
+    def __init__(self, c1, c2, k=1, s=1, us=[True, True], p=None, g=1, d=1, act=True, post_concat=False):
         """Initializes a standard convolution layer with optional batch normalization and activation."""
         super().__init__()
-        self.conv = USConv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False, us=us)
-        self.bn = USBatchNorm2d(c2)
+        self.conv = USConv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False, us=us, post_concat=post_concat)
+        
+        print(f'weight shape: {[self.conv.out_channels, self.conv.in_channels]}')
+        
+        # Check if the output dimension is slimmable
+        if us[1]:
+            self.bn = USBatchNorm2d(c2)
+        else:
+            self.bn = nn.BatchNorm2d(c2)
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
+        print(f'USConv forward, {self.conv.weight.shape}')
         """Applies a convolution followed by batch normalization and an activation function to the input tensor `x`."""
         return self.act(self.bn(self.conv(x)))
 
@@ -115,20 +124,29 @@ class USBottleneck(nn.Module):
 
 class USC3(nn.Module):
     # CSP Bottleneck with 3 convolutions
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5, us=[True, True]):
+    def __init__(self, c1, c2, n=1, us=[True, True], shortcut=True, post_concat=False, g=1, e=0.5):
         """Initializes C3 module with options for channel count, bottleneck repetition, shortcut usage, group
         convolutions, and expansion.
         """
         super().__init__()
         c_ = int(c2 * e)  # hidden channels
-        self.cv1 = USConv(c1, c2, 1, 1, us=[us[0], True])
-        self.cv2 = USConv(c1, c_, 1, 1)
-        self.cv3 = USConv(2 * c_, c2, 1 us=[True, us[1]])  # optional act=FReLU(c2)
+        self.cv1 = USConv(c1, c_, 1, 1, us=[us[0], True], post_concat=post_concat)
+        self.cv2 = USConv(c1, c_, 1, 1, us=[us[0], True], post_concat=post_concat)
+        self.cv3 = USConv(2 * c_, c2, 1, us=[True, us[1]], post_concat=True)  # optional act=FReLU(c2)
         self.m = nn.Sequential(*(USBottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        self.il = Interleave(dim=1) 
 
     def forward(self, x):
+        print('C3')
         """Performs forward propagation using concatenated outputs from two convolutions and a Bottleneck sequence."""
-        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+        a = self.cv2(x)
+        print('CV2')
+        b = self.m(self.cv1(x))
+        print('Bottleneck & CV1')
+        c = self.il([a, b])
+        print('CV3')
+        return self.cv3(c)
+        # return self.cv3(self.il((self.m(self.cv1(x)), self.cv2(x)), 1))
 
 class Interleave(nn.Module):
     # Interleaving layer to replace Concatenations in C3 blocks and in the Neck
@@ -137,10 +155,67 @@ class Interleave(nn.Module):
         self.dim = 1
         
     def forward(self, x):
+        print('Interleave')
         num_inputs = len(x)
         num_channels = x[0].shape[self.dim]
         return torch.cat([torch.cat([x[i][:,j,:,:].unsqueeze(dim=self.dim) for i in range(num_inputs)], dim=self.dim) for j in range(num_channels)], dim=self.dim)
 
+class USDetect(nn.Module):
+    # YOLOv5 Detect head for detection models
+    stride = None  # strides computed during build
+    dynamic = False  # force grid reconstruction
+    export = False  # export mode
+
+    def __init__(self, nc=80, anchors=(), ch=(), inplace=True):
+        """Initializes YOLOv5 detection layer with specified classes, anchors, channels, and inplace operations."""
+        super().__init__()
+        self.nc = nc  # number of classes
+        self.no = nc + 5  # number of outputs per anchor
+        self.nl = len(anchors)  # number of detection layers
+        self.na = len(anchors[0]) // 2  # number of anchors
+        self.grid = [torch.empty(0) for _ in range(self.nl)]  # init grid
+        self.anchor_grid = [torch.empty(0) for _ in range(self.nl)]  # init anchor grid
+        self.register_buffer("anchors", torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
+        self.m = nn.ModuleList(USConv2d(x, self.no * self.na, 1, us=[True, False]) for x in ch)  # output conv
+        self.inplace = inplace  # use inplace ops (e.g. slice assignment)
+        
+    def forward(self, x):
+        """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
+        z = []  # inference output
+        for i in range(self.nl):
+            x[i] = self.m[i](x[i])  # conv
+            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+
+            if not self.training:  # inference
+                if self.dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                    self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
+
+                if isinstance(self, Segment):  # (boxes + masks)
+                    xy, wh, conf, mask = x[i].split((2, 2, self.nc + 1, self.no - self.nc - 5), 4)
+                    xy = (xy.sigmoid() * 2 + self.grid[i]) * self.stride[i]  # xy
+                    wh = (wh.sigmoid() * 2) ** 2 * self.anchor_grid[i]  # wh
+                    y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)
+                else:  # Detect (boxes only)
+                    xy, wh, conf = x[i].sigmoid().split((2, 2, self.nc + 1), 4)
+                    xy = (xy * 2 + self.grid[i]) * self.stride[i]  # xy
+                    wh = (wh * 2) ** 2 * self.anchor_grid[i]  # wh
+                    y = torch.cat((xy, wh, conf), 4)
+                z.append(y.view(bs, self.na * nx * ny, self.no))
+
+        return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)
+
+    def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, "1.10.0")):
+        """Generates a mesh grid for anchor boxes with optional compatibility for torch versions < 1.10."""
+        d = self.anchors[i].device
+        t = self.anchors[i].dtype
+        shape = 1, self.na, ny, nx, 2  # grid shape
+        y, x = torch.arange(ny, device=d, dtype=t), torch.arange(nx, device=d, dtype=t)
+        yv, xv = torch.meshgrid(y, x, indexing="ij") if torch_1_10 else torch.meshgrid(y, x)  # torch>=0.7 compatibility
+        grid = torch.stack((xv, yv), 2).expand(shape) - 0.5  # add grid offset, i.e. y = 2.0 * x - 0.5
+        anchor_grid = (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
+        return grid, anchor_grid
+        
 class Detect(nn.Module):
     # YOLOv5 Detect head for detection models
     stride = None  # strides computed during build
@@ -449,7 +524,7 @@ def parse_model(d, ch):
         d.get("channel_multiple"),
     )
     if act:
-        Conv.default_act = eval(act)  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
+        USConv.default_act = eval(act)  # redefine default activation, i.e. Conv.default_act = nn.SiLU()
         LOGGER.info(f"{colorstr('activation:')} {act}")  # print
     if not ch_mul:
         ch_mul = 8
@@ -465,7 +540,7 @@ def parse_model(d, ch):
 
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
-            Conv,
+            USConv,
             GhostConv,
             Bottleneck,
             GhostBottleneck,
@@ -476,7 +551,7 @@ def parse_model(d, ch):
             Focus,
             CrossConv,
             BottleneckCSP,
-            C3,
+            USC3,
             C3TR,
             C3SPP,
             C3Ghost,
@@ -489,15 +564,17 @@ def parse_model(d, ch):
                 c2 = make_divisible(c2 * gw, ch_mul)
 
             args = [c1, c2, *args[1:]]
-            if m in {BottleneckCSP, C3, C3TR, C3Ghost, C3x}:
+            if m in {BottleneckCSP, USC3, C3TR, C3Ghost, C3x}:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
+        elif m is Interleave:
+            c2 = sum(ch[x] for x in f)
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
         # TODO: channel, gw, gd
-        elif m in {Detect, Segment}:
+        elif m in {USDetect, Segment}:
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
@@ -525,7 +602,7 @@ def parse_model(d, ch):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, default="yolov5s.yaml", help="model.yaml")
+    parser.add_argument("--cfg", type=str, default="us_yolov5n.yaml", help="model.yaml")
     parser.add_argument("--batch-size", type=int, default=1, help="total batch size for all GPUs")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
     parser.add_argument("--profile", action="store_true", help="profile model speed")

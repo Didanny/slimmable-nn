@@ -17,3 +17,5 @@ from .us_resnet import cifar100_usresnet20
 from .us_resnet import cifar100_usresnet32
 from .us_resnet import cifar100_usresnet44
 from .us_resnet import cifar100_usresnet56
+
+from .us_yolo import DetectionModel
