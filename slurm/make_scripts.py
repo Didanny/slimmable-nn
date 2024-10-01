@@ -9,14 +9,14 @@ models = [
     'cifar100_usresnet32',
     'cifar100_usresnet44',
     'cifar100_usresnet56',
-    'cifar10_usvgg_bn11',
-    'cifar10_usvgg_bn13',
-    'cifar10_usvgg_bn16',
-    'cifar10_usvgg_bn19',
-    'cifar100_usvgg_bn11',
-    'cifar100_usvgg_bn13',
-    'cifar100_usvgg_bn16',
-    'cifar100_usvgg_bn19',
+    'cifar10_usvgg11_bn',
+    'cifar10_usvgg13_bn',
+    'cifar10_usvgg16_bn',
+    'cifar10_usvgg19_bn',
+    'cifar100_usvgg11_bn',
+    'cifar100_usvgg13_bn',
+    'cifar100_usvgg16_bn',
+    'cifar100_usvgg19_bn',
 ]
 
 lines = [

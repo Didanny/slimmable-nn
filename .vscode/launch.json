@@ -27,5 +27,13 @@
             "console": "integratedTerminal",
             "args": ["--model", "cifar10_usvgg11_bn", "--dataset", "cifar10", "--inplace-distill"]
         },
+        {
+            "name": "test resnet20",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test_cifar.py",
+            "console": "integratedTerminal",
+            "args": ["--model", "cifar100_usresnet20", "--dataset", "cifar100", "--best"]
+        },
     ]
 }
