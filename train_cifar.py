@@ -94,10 +94,10 @@ def log_meters(writer: SummaryWriter, meters: dict, prefix: str, step: int):
             meter[f'top{k}_accuracy'].reset()
         
 
-def prepare_for_training(device: torch.device, model_name: str, dataset: str, ema: bool) \
+def prepare_for_training(device: torch.device, model_name: str, dataset: str) \
     -> tuple[nn.Module, nn.Module, nn.Module, object, DataLoader, DataLoader]:
     # Get flags
-    FLAGS = Flags()    
+    FLAGS = Flags() 
     
     # Load the model
     model = getattr(models, model_name)(pretrained=False)
@@ -237,6 +237,7 @@ def main(opt: argparse.Namespace):
     # Set up FLAGS
     FLAGS = Flags()
     FLAGS.width_mult_range = opt.width_mult_range
+    FLAGS.width_mult_list = opt.width_mult_range
     FLAGS.inplace_distill = opt.inplace_distill
     FLAGS.n = opt.n
     FLAGS.epochs = opt.epochs
