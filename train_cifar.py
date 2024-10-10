@@ -266,33 +266,31 @@ def main(opt: argparse.Namespace):
         train(model, criterion, soft_criterion, optimizer, lr_scheduler, train_loader, device, epoch, train_meters, False)
         
         # Eval
-        model_params = model.state_dict()
         evaluate(model, criterion, val_loader, device, epoch, val_meters)
         
         # Update best model
         top1_accuracy, top5_accuracy = val_meters[f'{max_width}']['top1_accuracy'].compute(), val_meters[f'{max_width}']['top5_accuracy'].compute()
-        fitness = (0.9 * top1_accuracy) + (0.1 * top5_accuracy)
+        fitness = (1.0 * top1_accuracy) + (0.0 * top5_accuracy)
         if best_fitness < fitness:
-            best_dict = {'params': model_params, 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
+            best_dict = {'params': model.state_dict(), 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
             best_fitness = fitness
+            torch.save(best_dict, best)
             
         # Update the checkpoints list
-        if epoch + 1 % 5 == 0:
-            last_dict = {'params': model_params, 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
-            checkpoints_list.append(last_dict)
+        # if (epoch + 1) % 5 == 0:
+        #     last_dict = {'params': model.state_dict(), 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
+        #     checkpoints_list.append(last_dict)
             
         # Update last model
         if epoch == FLAGS.epochs - 1:
-            last_dict = {'params': model_params, 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
+            last_dict = {'params': model.state_dict(), 'top5_accuracy': top5_accuracy, 'top1_accuracy': top1_accuracy, 'epoch': epoch}
+            torch.save(last_dict, last)
         
         # Tensorboard
         log_meters(writer, train_meters, 'train', epoch)
         log_meters(writer, val_meters, 'val', epoch)      
-        
-    # Save the best and last
-    torch.save(best_dict, best)
-    torch.save(last_dict, last)
-    torch.save(checkpoints_list, checkpoints)
+    
+    # torch.save(checkpoints_list, checkpoints)
     
 
 if __name__ == '__main__':

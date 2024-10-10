@@ -42,7 +42,7 @@ def _cifar(root: Path, image_size: tuple[int], mean: list[float], std: list[floa
                                    num_workers=num_workers,
                                    persistent_workers=True)
     val_loader = data.DataLoader(valset, batch_size=batch_size,
-                                 shuffle=(val_sampler is None),
+                                 shuffle=False,
                                  sampler=val_sampler,
                                  num_workers=num_workers,
                                  persistent_workers=True)

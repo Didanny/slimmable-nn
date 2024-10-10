@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 from tqdm import tqdm
 import random
+import csv
 
 import torch
 from torch import nn
@@ -20,13 +21,24 @@ import data
 from utils import Flags
 
 default_width_mult_list = [0.25, 1.0, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
+default_model_list = [
+    'usresnet20',
+    'usresnet32',
+    'usresnet44',
+    'usresnet56',
+    'usvgg11_bn',
+    'usvgg13_bn',
+    'usvgg16_bn',
+    'usvgg19_bn',
+]
 
 def parse_opt() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='cifar100_usresnet20')
+    parser.add_argument('--models', type=str, nargs='*', default=default_model_list)
     parser.add_argument('--dataset', type=str, default='cifar100')
     parser.add_argument('--widths', nargs='*', type=float, default=default_width_mult_list)
     parser.add_argument('--best', action='store_true')
+    parser.add_argument('--no-cal', action='store_true')
     opt = parser.parse_args()
     print(vars(opt))
     return opt
@@ -117,18 +129,18 @@ def main(opt: argparse.Namespace):
         device = torch.device('cpu')
     print(f'Using device: {device}')
     
+    # Set flags
     FLAGS = Flags()
     FLAGS.width_mult_range = [0.25, 1.0]
     FLAGS.width_mult_list = [0.25, 1.0]
+    FLAGS.width_mult_list = opt.widths
     
-    # Load the model
-    model = getattr(models, opt.model)(pretrained=False)
+    # Results
+    results = [[model] for model in opt.models]
+    # print(results)
     
-    # Load the checkpoint
-    best_or_last = 'best' if opt.best else 'last'
-    checkpoint = torch.load(f'./runs/{opt.model}_{opt.dataset}/weights/{best_or_last}.pt', map_location=device)
-    print(f'epoch: {checkpoint["epoch"]}')
-    model.load_state_dict(checkpoint['params'], strict=False)
+    # Preprocess moel names
+    opt.models = [f'{opt.dataset}_' + n for n in opt.models]
     
     # Get the data loaders
     train_loader, val_loader = getattr(data, opt.dataset)()
@@ -136,30 +148,48 @@ def main(opt: argparse.Namespace):
     # Get the criterion
     criterion = nn.CrossEntropyLoss()
     
-    # Move to cuda if available
-    if torch.cuda.is_available():
-        model.to(device = device)
+    for i, model_name in enumerate(opt.models):
+        # Load the model
+        model = getattr(models, model_name)(pretrained=False)
         
-    # Get the calibration meters
-    cal_meters = get_meters(device, 'cal', opt.dataset)
-    val_meters = get_meters(device, 'val', opt.dataset)
+        # Move to cuda if available
+        if torch.cuda.is_available():
+            model.to(device = device)
+        
+        # Load the checkpoint
+        best_or_last = 'best' if opt.best else 'last'
+        checkpoint = torch.load(f'./runs/{model_name}_{opt.dataset}/weights/{best_or_last}.pt', map_location=device)
+        
+        # Record all model accuracies 
+        model.load_state_dict(checkpoint['params'], strict=False)
+            
+        # Get the calibration meters
+        cal_meters = get_meters(device, 'cal', opt.dataset)
+        val_meters = get_meters(device, 'val', opt.dataset)
 
-    # Begin calibration
-    model.train()
-    model.apply(bn_calibration_init)
-    
-    # Run calibration epoch
-    evaluate(model, criterion, train_loader, device, 'cal', cal_meters)
-    
-    # Run validation epoch
-    model.eval()
-    with torch.no_grad():
-        evaluate(model, criterion, val_loader, device, 'val', val_meters)
+        # Begin calibration
+        if not opt.no_cal:
+            model.eval()
+            model.apply(bn_calibration_init)
         
-    flush_meters(val_meters)
-    print(val_meters)
-    torch.save(val_meters, 'val_meters.pt')
+            # Run calibration epoch
+            evaluate(model, criterion, train_loader, device, 'cal', cal_meters)
         
+        # Run validation epoch
+        model.eval()
+        with torch.no_grad():
+            evaluate(model, criterion, val_loader, device, 'val', val_meters)
+        
+        flush_meters(val_meters)
+        results[i] += [val_meters[str(width)]['top1_accuracy'].item() for width in sorted(FLAGS.width_mult_list, reverse=True)]    
+        # print(results[i]) 
+        
+    # Save results
+    with open('./results/us_results_cifar.csv', 'w') as outfile:
+        writer = csv.writer(outfile, delimiter=',')
+        writer.writerow(['Model Name'] + [str(w) for w in FLAGS.width_mult_list])
+        for row in results:
+            writer.writerow(row)
     
 
 if __name__ == '__main__':
