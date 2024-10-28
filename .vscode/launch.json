@@ -35,5 +35,13 @@
             "console": "integratedTerminal",
             "args": ["--model", "cifar100_usresnet20", "--dataset", "cifar100", "--best"]
         },
+        {
+            "name": "train yolov5n",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_yolo.py",
+            "console": "integratedTerminal",
+            "args": ["--weights", "''", "--cfg", "us_yolov5n.yaml"]
+        },
     ]
 }

@@ -96,7 +96,7 @@ class USConv(nn.Module):
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
-        print(f'USConv forward, {self.conv.weight.shape}')
+        # print(f'USConv forward, {self.conv.weight.shape}')
         """Applies a convolution followed by batch normalization and an activation function to the input tensor `x`."""
         return self.act(self.bn(self.conv(x)))
 
@@ -137,14 +137,14 @@ class USC3(nn.Module):
         self.il = Interleave(dim=1) 
 
     def forward(self, x):
-        print('C3')
+        # print('C3')
         """Performs forward propagation using concatenated outputs from two convolutions and a Bottleneck sequence."""
         a = self.cv2(x)
-        print('CV2')
+        # print('CV2')
         b = self.m(self.cv1(x))
-        print('Bottleneck & CV1')
+        # print('Bottleneck & CV1')
         c = self.il([a, b])
-        print('CV3')
+        # print('CV3')
         return self.cv3(c)
         # return self.cv3(self.il((self.m(self.cv1(x)), self.cv2(x)), 1))
 
@@ -155,7 +155,7 @@ class Interleave(nn.Module):
         self.dim = 1
         
     def forward(self, x):
-        print('Interleave')
+        # print('Interleave')
         num_inputs = len(x)
         num_channels = x[0].shape[self.dim]
         return torch.cat([torch.cat([x[i][:,j,:,:].unsqueeze(dim=self.dim) for i in range(num_inputs)], dim=self.dim) for j in range(num_channels)], dim=self.dim)
@@ -360,7 +360,7 @@ class BaseModel(nn.Module):
         return self
 
 
-class DetectionModel(BaseModel):
+class USDetectionModel(BaseModel):
     # YOLOv5 detection model
     def __init__(self, cfg="yolov5s.yaml", ch=3, nc=None, anchors=None):
         """Initializes YOLOv5 model with configuration file, input channels, number of classes, and custom anchors."""
@@ -388,10 +388,11 @@ class DetectionModel(BaseModel):
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
-        if isinstance(m, (Detect, Segment)):
+        if isinstance(m, (USDetect, Detect, Segment)):
             s = 256  # 2x min stride
             m.inplace = self.inplace
             forward = lambda x: self.forward(x)[0] if isinstance(m, Segment) else self.forward(x)
+            self.apply(lambda m: setattr(m, 'width_mult', 1.0))
             m.stride = torch.tensor([s / x.shape[-2] for x in forward(torch.zeros(1, ch, s, s))])  # forward
             check_anchor_order(m)
             m.anchors /= m.stride.view(-1, 1, 1)
@@ -471,10 +472,10 @@ class DetectionModel(BaseModel):
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
 
-Model = DetectionModel  # retain YOLOv5 'Model' class for backwards compatibility
+Model = USDetectionModel  # retain YOLOv5 'Model' class for backwards compatibility
 
 
-class SegmentationModel(DetectionModel):
+class SegmentationModel(USDetectionModel):
     # YOLOv5 segmentation model
     def __init__(self, cfg="yolov5s-seg.yaml", ch=3, nc=None, anchors=None):
         """Initializes a YOLOv5 segmentation model with configurable params: cfg (str) for configuration, ch (int) for channels, nc (int) for num classes, anchors (list)."""
