@@ -92,6 +92,7 @@ def parse_opt(known=False):
     
     # Slimmable training arguments
     parser.add_argument('--n', type=int, default=4)
+    parser.add_argument('--dp', action='store_true')
 
     return parser.parse_known_args()[0] if known else parser.parse_args()
 
@@ -131,6 +132,7 @@ def main(opt: argparse.Namespace):
     FLAGS.width_mult_list = FLAGS.width_mult_range
     FLAGS.n = opt.n
     FLAGS.epochs = opt.epochs
+    FLAGS.dp = opt.dp
     
     # Initialize Tensorboard writer
     writer = SummaryWriter(log_dir=f'runs_yolo/{datetime.strftime(datetime.now(), "%b_%d_%X")}_{socket.gethostname()}', comment=f'_{opt.weights}')
@@ -217,6 +219,9 @@ def main(opt: argparse.Namespace):
     # Batch size
     if RANK == -1 and batch_size == -1:  # single-GPU only, estimate best batch size
         batch_size = check_train_batch_size(model, imgsz, amp)
+    
+    if FLAGS.dp:
+        batch_size *= torch.cuda.device_count()
     
     # Optimizer
     nbs = 64  # nominal batch size
@@ -308,6 +313,10 @@ def main(opt: argparse.Namespace):
     
     # Get the meters
     val_meters = get_meters(device, 'val')
+    
+    # Data parallelism
+    if FLAGS.dp:
+        model = nn.DataParallel(model)
         
     for epoch in range(epochs):
         model.train()
