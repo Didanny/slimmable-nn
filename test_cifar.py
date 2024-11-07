@@ -187,7 +187,7 @@ def main(opt: argparse.Namespace):
     # Save results
     with open('./results/us_results_cifar.csv', 'w') as outfile:
         writer = csv.writer(outfile, delimiter=',')
-        writer.writerow(['Model Name'] + [str(w) for w in FLAGS.width_mult_list])
+        writer.writerow(['Model Name'] + [str(w) for w in sorted(FLAGS.width_mult_list, reverse=True)])
         for row in results:
             writer.writerow(row)
     
