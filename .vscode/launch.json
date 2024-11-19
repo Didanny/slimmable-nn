@@ -43,5 +43,13 @@
             "console": "integratedTerminal",
             "args": ["--weights", "''", "--cfg", "us_yolov5n.yaml"]
         },
+        {
+            "name": "test yolov5n",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test_yolo.py",
+            "console": "integratedTerminal",
+            "args": ["--weights", "''", "--cfg", "us_yolov5n.yaml", "--best"]
+        },
     ]
 }
