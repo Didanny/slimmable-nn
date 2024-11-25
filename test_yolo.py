@@ -9,6 +9,7 @@ from pathlib import Path
 import random
 from datetime import datetime
 import socket
+import csv
 
 import numpy as np
 import torch
@@ -109,7 +110,7 @@ def get_meters(device: torch.device, phase: str):
     
     FLAGS = Flags()
     
-    metrics = ['precision', 'recall', 'mAP@.5', 'mAP@.5-.95', 'loss1', 'loss2', 'loss3']
+    metrics = ['precision', 'recall', 'mAP@.5', 'mAP@.5-.95', 'loss1', 'loss2', 'loss3', 'setup_time', 'inference_time', 'nms_time']
     
     def get_single_meter(phase, suffix=''):
         meters = {}
@@ -297,46 +298,58 @@ def main(opt: argparse.Namespace):
         model.eval()
         model.apply(bn_calibration_init)
     
-    mloss = torch.zeros(3, device=device)  # mean losses
-    
-    # Progress bar
-    pbar = enumerate(train_loader)
-    pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
-    
-    # Training batch
-    optimizer.zero_grad()
-    for i, (imgs, targets, paths, _) in pbar:
-        ni = i + nb * 0  # number integrated batches (since train start)
-        imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
+        mloss = torch.zeros(3, device=device)  # mean losses
+        
+        # Progress bar
+        pbar = enumerate(train_loader)
+        pbar = tqdm(pbar, total=nb, bar_format=TQDM_BAR_FORMAT)  # progress bar
+        
+        # Training batch
+        optimizer.zero_grad()
+        for i, (imgs, targets, paths, _) in pbar:
+            ni = i + nb * 0  # number integrated batches (since train start)
+            imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
-        # Train at each width
-        for width_mult in sorted(FLAGS.width_mult_list, reverse=True):
-        # for width_mult in [1.0]:
-            model.apply(lambda m: setattr(m, 'width_mult', width_mult))
-                
-            # Forward
-            pred = model(imgs)  # forward
-    
+            # Train at each width
+            for width_mult in sorted(FLAGS.width_mult_list, reverse=True):
+            # for width_mult in [1.0]:
+                model.apply(lambda m: setattr(m, 'width_mult', width_mult))
+                    
+                # Forward
+                pred = model(imgs)  # forward
+        
     for width_mult in sorted(FLAGS.width_mult_list, reverse=True):
         # Validate 
         model.apply(lambda m: setattr(m, 'width_mult', width_mult))
-        results, maps, _ = validate.run(data_dict,
-                                        batch_size=batch_size // WORLD_SIZE * 2,
-                                        imgsz=imgsz,
-                                        half=amp,
-                                        model=model,
-                                        single_cls=single_cls,
-                                        dataloader=val_loader,
-                                        plots=False,
-                                        callbacks=Callbacks(),
-                                        compute_loss=compute_loss)
+        results, maps, latencies = validate.run(data_dict,
+                                                batch_size=batch_size // WORLD_SIZE * 2,
+                                                imgsz=imgsz,
+                                                half=amp,
+                                                model=model,
+                                                single_cls=single_cls,
+                                                dataloader=val_loader,
+                                                plots=False,
+                                                callbacks=Callbacks(),
+                                                compute_loss=compute_loss)
         
         # Compile results into meters
         for k, r in zip(['precision', 'recall', 'mAP@.5', 'mAP@.5-.95', 'loss1', 'loss2', 'loss3'], results):
             val_meters[str(width_mult)][k] = r
+        for k, t in zip(['setup_time', 'inference_time', 'nms_time'], latencies):
+            val_meters[str(width_mult)][k] = t
         
         # End epoch
-    # End training cycle
+    # End Calibration
+    
+    # Write the results to file
+    all_metrics = ['precision', 'recall', 'mAP@.5', 'mAP@.5-.95', 'loss1', 'loss2', 'loss3', 'setup_time', 'inference_time', 'nms_time'] 
+    with open(f'./results/us_results_{model_name}_{device}.csv', 'w') as outfile:
+        writer = csv.writer(outfile, delimiter=',')
+        writer.writerow(['Metric'] + [str(w) for w in sorted(FLAGS.width_mult_list, reverse=True)])
+        for k in all_metrics:
+            row = [val_meters[str(w)][k] for w in sorted(FLAGS.width_mult_list, reverse=True)]
+            row = [k] + row
+            writer.writerow(row)
     
     
 if __name__ == '__main__':

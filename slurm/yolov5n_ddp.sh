@@ -7,4 +7,4 @@
 #SBATCH -e slurm_logs/err_yolov5n.out 
 #SBATCH -o slurm_logs/log_yolov5n.out
 
-python train_yolo_ddp.py --weights '' --cfg us_yolov5n.yaml --data yolov5/data/coco.yaml --batch-size 88 --epochs 300 --workers 19
+python train_yolo_ddp.py --weights '' --cfg us_yolov5n.yaml --data yolov5/data/coco.yaml --batch-size 128 --epochs 300 --workers 19

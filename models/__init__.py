@@ -19,3 +19,5 @@ from .us_resnet import cifar100_usresnet44
 from .us_resnet import cifar100_usresnet56
 
 from .us_yolo import USDetectionModel
+
+from .us_yolo_runtime import USDetectionModelRuntime
