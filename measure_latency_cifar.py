@@ -194,7 +194,7 @@ def main(opt: argparse.Namespace):
         print(results[i])
         
     # Save results
-    with open(f'./results/us_latency_results_cifar_b{opt.batch_size}.csv', 'w') as outfile:
+    with open(f'./results/us_latency_results_cifar_b{opt.batch_size}_{str(device)}.csv', 'w') as outfile:
         writer = csv.writer(outfile, delimiter=',')
         writer.writerow(['Model Name'] + [str(w) for w in sorted(FLAGS.width_mult_list, reverse=True)])
         for row in results:

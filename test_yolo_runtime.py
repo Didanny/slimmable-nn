@@ -80,6 +80,8 @@ from yolov5.utils.torch_utils import (
     time_sync,
 )
 
+from utils import Profile
+
 try:
     import thop  # for FLOPs computation
 except ImportError:
@@ -105,13 +107,19 @@ if __name__ == "__main__":
     
     FLAGS = Flags()
     FLAGS.width_mult_list = default_width_mult_list
-
+    FLAGS.profilers = [Profile() for i in range(4)]
+    FLAGS.current_profiler = None
     # Create model
     im = torch.rand(opt.batch_size, 3, 640, 640).to(device)
     model = USDetectionModelRuntime(opt.cfg).to(device)
     model.apply(lambda m: setattr(m, 'width_mult', 1.0))
 
+    FLAGS.current_profiler = FLAGS.profilers[3]
     model(im, 1.0)
+    
+    dummy_input = torch.rand((opt.batch_size, 3, 640, 640))
+    
+    for i in range(1)
     model(im, -1.0)
     model(im, 0.25)
     model(im, 0.50)
