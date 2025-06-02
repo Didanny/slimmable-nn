@@ -15,6 +15,9 @@ import platform
 import sys
 from copy import deepcopy
 from pathlib import Path
+import itertools
+import random
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -94,12 +97,10 @@ default_width_mult_list = [0.25, 1.0, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425
 
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, default="us_yolov5n_runtime.yaml", help="model.yaml")
+    parser.add_argument("--cfg", type=str, default="us_yolov5s_runtime.yaml", help="model.yaml")
     parser.add_argument("--batch-size", type=int, default=1, help="total batch size for all GPUs")
     parser.add_argument("--device", default="", help="cuda device, i.e. 0 or 0,1,2,3 or cpu")
-    parser.add_argument("--profile", action="store_true", help="profile model speed")
-    parser.add_argument("--line-profile", action="store_true", help="profile model speed layer by layer")
-    parser.add_argument("--test", action="store_true", help="test all yolo*.yaml")
+    parser.add_argument('--iters', type=int)
     opt = parser.parse_args()
     opt.cfg = check_yaml(opt.cfg)  # check YAML
     print_args(vars(opt))
@@ -107,21 +108,53 @@ if __name__ == "__main__":
     
     FLAGS = Flags()
     FLAGS.width_mult_list = default_width_mult_list
-    FLAGS.profilers = [Profile() for i in range(4)]
-    FLAGS.current_profiler = None
+    FLAGS.current_profiler = Profile()
     # Create model
     im = torch.rand(opt.batch_size, 3, 640, 640).to(device)
     model = USDetectionModelRuntime(opt.cfg).to(device)
     model.apply(lambda m: setattr(m, 'width_mult', 1.0))
-
-    FLAGS.current_profiler = FLAGS.profilers[3]
     model(im, 1.0)
     
     dummy_input = torch.rand((opt.batch_size, 3, 640, 640))
     
-    for i in range(1)
-    model(im, -1.0)
-    model(im, 0.25)
-    model(im, 0.50)
-    model(im, -1.0)
-    model(im, 0.825)
+    testing_widths = [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
+    results = {}
+    
+    # Add all pairs to the results dict
+    for pair in list(itertools.combinations(testing_widths, 2)):
+        # Add pair
+        results[pair] = {
+            'running_time': 0.0,
+            'occurences': 0
+        }
+        
+        # Add the inverse pair
+        results[(pair[1], pair[0])] = {
+            'running_time': 0.0,
+            'occurences': 0
+        }
+    
+    
+    current_width = 1.0
+    
+    for i in tqdm(range(opt.iters)):
+        next_width = random.choice(testing_widths)
+        
+        # If same width, re-try
+        if next_width == current_width:
+            continue
+        
+        # Resize model
+        FLAGS.current_profiler = Profile()
+        model(im, next_width)
+        
+        # Record results
+        results[(current_width, next_width)]['running_time'] += FLAGS.current_profiler.t
+        results[(current_width, next_width)]['occurences'] += 1
+        
+        current_width = next_width
+        
+    # Save the results
+    torch.save(results, f'./results/yolos_resize_time_{opt.iters}.pt')
+    
+    
