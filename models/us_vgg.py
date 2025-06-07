@@ -30,6 +30,7 @@ class VGG(nn.Module):
         self,
         features: nn.Module,
         num_classes: int = 10,
+        img_size: int  = 32,
         init_weights: bool = True
     ) -> None:
         super(VGG, self).__init__()
@@ -139,12 +140,26 @@ def cifar100_usvgg16_bn(*args, **kwargs) -> VGG: pass
 def cifar100_usvgg19_bn(*args, **kwargs) -> VGG: pass
 
 
+def tinyimagenet_usvgg11_bn(*args, **kwargs) -> VGG: pass
+def tinyimagenet_usvgg13_bn(*args, **kwargs) -> VGG: pass
+def tinyimagenet_usvgg16_bn(*args, **kwargs) -> VGG: pass
+def tinyimagenet_usvgg19_bn(*args, **kwargs) -> VGG: pass
+
+
 thismodule = sys.modules[__name__]
-for dataset in ["cifar10", "cifar100"]:
+for dataset in ["cifar10", "cifar100", "tinyimagenet"]:
     for cfg, model_name in zip(["A", "B", "D", "E"], ["usvgg11_bn", "usvgg13_bn", "usvgg16_bn", "usvgg19_bn"]):
         method_name = f"{dataset}_{model_name}"
         # model_urls = cifar10_pretrained_weight_urls if dataset == "cifar10" else cifar100_pretrained_weight_urls
-        num_classes = 10 if dataset == "cifar10" else 100
+        if dataset == "cifar10":
+            num_classes = 10 
+            img_size = 32
+        elif dataset == "cifar100":
+            num_classes = 100
+            img_size = 32
+        elif dataset == "tinyimagenet":
+            num_classes = 200
+            img_size = 64
         setattr(
             thismodule,
             method_name,
@@ -153,5 +168,6 @@ for dataset in ["cifar10", "cifar100"]:
                     cfg=cfg,
                     batch_norm=True,
                     # model_urls=model_urls,
-                    num_classes=num_classes)
+                    num_classes=num_classes,
+                    img_size=img_size)
         )

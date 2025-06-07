@@ -68,7 +68,7 @@ class BasicBlock(nn.Module):
 
 class CifarResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=10):
+    def __init__(self, block, layers, num_classes=10, img_size=32):
         super(CifarResNet, self).__init__()
         self.inplanes = 16
         self.conv1 = conv3x3(3, 16, us=[False, True])
@@ -150,13 +150,27 @@ def cifar100_usresnet44(*args, **kwargs) -> CifarResNet: pass
 def cifar100_usresnet56(*args, **kwargs) -> CifarResNet: pass
 
 
+def tinyimagenet_usresnet20(*args, **kwargs) -> CifarResNet: pass
+def tinyimagenet_usresnet32(*args, **kwargs) -> CifarResNet: pass
+def tinyimagenet_usresnet44(*args, **kwargs) -> CifarResNet: pass
+def tinyimagenet_usresnet56(*args, **kwargs) -> CifarResNet: pass
+
+
 thismodule = sys.modules[__name__]
-for dataset in ["cifar10", "cifar100"]:
+for dataset in ["cifar10", "cifar100", "tinyimagenet"]:
     for layers, model_name in zip([[3]*3, [5]*3, [7]*3, [9]*3],
                                   ["usresnet20", "usresnet32", "usresnet44", "usresnet56"]):
         method_name = f"{dataset}_{model_name}"
         # model_urls = cifar10_pretrained_weight_urls if dataset == "cifar10" else cifar100_pretrained_weight_urls
-        num_classes = 10 if dataset == "cifar10" else 100
+        if dataset == "cifar10":
+            num_classes = 10 
+            img_size = 32
+        elif dataset == "cifar100":
+            num_classes = 100
+            img_size = 32
+        elif dataset == "tinyimagenet":
+            num_classes = 200
+            img_size = 64
         setattr(
             thismodule,
             method_name,
@@ -164,5 +178,6 @@ for dataset in ["cifar10", "cifar100"]:
                     arch=model_name,
                     layers=layers,
                     # model_urls=model_urls,
-                    num_classes=num_classes)
+                    num_classes=num_classes,
+                    img_size=img_size)
         )
