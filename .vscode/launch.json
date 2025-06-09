@@ -20,6 +20,14 @@
             "args": ["--model", "cifar10_usresnet20", "--dataset", "cifar10", "--inplace-distill"]
         },
         {
+            "name": "usvit",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_cifar.py",
+            "console": "integratedTerminal",
+            "args": ["--model", "cifar100_usvit", "--dataset", "cifar100", "--inplace-distill", "--label-smoothing", "0.1"]
+        },
+        {
             "name": "usvgg11",
             "type": "debugpy",
             "request": "launch",

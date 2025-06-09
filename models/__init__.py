@@ -28,11 +28,11 @@ from .us_resnet import tinyimagenet_usresnet32
 from .us_resnet import tinyimagenet_usresnet44
 from .us_resnet import tinyimagenet_usresnet56
 
-from .us_vit import cifar100_vit
+from .us_vit import cifar100_usvit
 
-from .us_vit import cifar10_vit
+from .us_vit import cifar10_usvit
 
-from .us_vit import tinyimagenet_vit
+from .us_vit import tinyimagenet_usvit
 
 from .us_yolo import USDetectionModel
 

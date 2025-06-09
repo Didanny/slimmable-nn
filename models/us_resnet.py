@@ -181,3 +181,24 @@ for dataset in ["cifar10", "cifar100", "tinyimagenet"]:
                     num_classes=num_classes,
                     img_size=img_size)
         )
+        
+        
+def tinyimagenet_usresnet56_x25(*args, **kwargs) -> CifarResNet: 
+    model = tinyimagenet_usresnet56(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.25))
+    return model
+    
+def tinyimagenet_usresnet56_x50(*args, **kwargs) -> CifarResNet: 
+    model = tinyimagenet_usresnet56(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.50))
+    return model
+    
+def tinyimagenet_usresnet56_x75(*args, **kwargs) -> CifarResNet: 
+    model = tinyimagenet_usresnet56(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.75))
+    return model
+
+def tinyimagenet_usresnet56_x100(*args, **kwargs) -> CifarResNet: 
+    model = tinyimagenet_usresnet56(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 1.00))
+    return model

@@ -3,12 +3,14 @@ import argparse
 from pathlib import Path
 from tqdm import tqdm
 import random
+import socket
+from datetime import datetime
 
 import torch
 from torch import nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import SequentialLR, LinearLR, CosineAnnealingLR
 
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.classification import Accuracy
@@ -24,6 +26,9 @@ def parse_opt() -> argparse.Namespace:
     parser.add_argument('--model', type=str, default='cifar100_usvgg11_bn')
     parser.add_argument('--dataset', type=str, default='cifar100')
     parser.add_argument('--inplace-distill', action='store_true')
+    parser.add_argument('--optimizer', type=str, default='sgd')
+    parser.add_argument('--vit-scheduler', action='store_true')
+    parser.add_argument('--label-smoothing', type=float, default=0.0)
     parser.add_argument('--width-mult-range', nargs=2, type=float, default=[0.25, 1.0])
     parser.add_argument('--n', type=int, default=4)
     parser.add_argument('--epochs', type=int, default=300)
@@ -31,6 +36,12 @@ def parse_opt() -> argparse.Namespace:
     opt = parser.parse_args()
     print(vars(opt))
     return opt
+
+def make_log_dir(base="runs/slimmable_runs", dataset="cifar100", model="usresnet32"):
+    timestamp = datetime.now().strftime("%b%d_%H-%M-%S")  
+    hostname = socket.gethostname()                       
+    log_dir = f"{base}/{dataset}/{timestamp}_{hostname}_{model}"
+    return log_dir
 
 def get_meters(device: torch.device, phase: str, dataset: str):
     """util function for meters"""
@@ -110,7 +121,7 @@ def prepare_for_training(device: torch.device, model_name: str, dataset: str) \
     train_loader, val_loader = getattr(data, dataset)()
     
     # Initialize criterion
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=opt.label_smoothing)
     
     # Initialize soft criterion
     # TODO: Implement soft verion
@@ -124,10 +135,44 @@ def prepare_for_training(device: torch.device, model_name: str, dataset: str) \
         soft_criterion.to(device=device)
         
     # Initialize optimizer
-    optimizer = optim.SGD([v for n, v in model.named_parameters()], 0.1, 0.9, 0, 5e-4, True)
+    if opt.optimizer == 'sgd':
+        optimizer = optim.SGD([v for n, v in model.named_parameters()], 0.1, 0.9, 0, 5e-4, True)
+    elif opt.optimizer == 'adamw':
+        optimizer = optim.AdamW(
+            [v for n, v in model.named_parameters()],
+            lr           = 5e-4,
+            betas        = (0.9, 0.999),
+            eps          = 1e-8,
+            weight_decay = 0.05
+        )
     
     # Initialize scheduler
-    lr_scheduler = CosineAnnealingLR(optimizer, T_max=300, eta_min=0)
+    if opt.vit_scheduler:
+        iters_per_epoch = len(train_loader)
+        warm_iters      = 10 * iters_per_epoch
+        total_iters     = 100 * iters_per_epoch
+        
+        lr_scheduler = SequentialLR(
+            optimizer,
+            schedulers=[
+                # 1) linear warm‑up from 1e‑6 × lr -> 1 × lr
+                LinearLR(
+                    optimizer,
+                    start_factor = 1e-6,
+                    end_factor   = 1.0,
+                    total_iters  = warm_iters
+                ),
+                # 2) cosine decay down to 0 over the rest of training
+                CosineAnnealingLR(
+                    optimizer,
+                    T_max  = total_iters - warm_iters,
+                    eta_min= 0.0
+                )
+            ],
+            milestones=[warm_iters]   # switch point
+        )
+    else:
+        lr_scheduler = CosineAnnealingLR(optimizer, T_max=300, eta_min=0)
     
     return model, criterion, soft_criterion, optimizer, lr_scheduler, train_loader, val_loader
 
@@ -162,6 +207,9 @@ def train(model: nn.Module, criterion: nn.Module, soft_criterion: nn.Module, opt
             # The sandwich rule
             model.apply(lambda m: setattr(m, 'width_mult', width_mult))
             
+            # DEBUG:
+            print(f'widht_mult: {width_mult}')
+            
             # Track largest and smallest model
             if width_mult in [max_width, min_width]:
                 meter = meters[f'{width_mult}']
@@ -177,10 +225,12 @@ def train(model: nn.Module, criterion: nn.Module, soft_criterion: nn.Module, opt
                 else:
                     loss = forward_loss(model, criterion, inputs, labels, meter)
         
-            loss.backward()
+            # DEBUG:
+            print(f'loss: {loss}')
+            (loss / 4).backward()
         
         optimizer.step()
-        scheduler.step()
+    scheduler.step()
 
 @torch.no_grad()    
 def evaluate(model: nn.Module, criterion: nn.Module, val_loader: DataLoader, device: torch.device, epoch: int, meters: dict):
@@ -227,7 +277,7 @@ def main(opt: argparse.Namespace):
     
     # Set up tensorboard summary writer
     # TODO: Create more comprehensive automated commenting
-    writer = SummaryWriter(comment=f'_{opt.model}_{opt.dataset}')
+    writer = SummaryWriter(log_dir=make_log_dir(dataset=opt.dataset, model=opt.model))
     save_dir = Path(writer.log_dir)
     
     # Directories

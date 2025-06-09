@@ -25,7 +25,6 @@ def get_tinyimagenet_val_transforms(
 ):
     return T.Compose([
         T.Resize(64),
-        T.CenterCrop(64),
         T.ToTensor(),
         T.Normalize(mean=mean, std=std),
     ])

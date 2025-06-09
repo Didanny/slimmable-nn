@@ -35,11 +35,19 @@ class VGG(nn.Module):
     ) -> None:
         super(VGG, self).__init__()
         self.features = features
+        if img_size == 64:
+            self.features = nn.Sequential(
+                *self.features,
+                USConv2d(512, 512, kernel_size=2, padding=0),
+                USBatchNorm2d(512), 
+                nn.ReLU(inplace=True),
+            )
         self.classifier = nn.Sequential(
             USLinear(512, 512),
             nn.ReLU(True),
             nn.Dropout(),
             USLinear(512, 512),
+            nn.ReLU(True),
             nn.Dropout(),
             USLinear(512, num_classes, us=[True, False])
         )
@@ -171,3 +179,23 @@ for dataset in ["cifar10", "cifar100", "tinyimagenet"]:
                     num_classes=num_classes,
                     img_size=img_size)
         )
+
+def tinyimagenet_usvgg16_bn_x25(*args, **kwargs) -> VGG: 
+    model = tinyimagenet_usvgg16_bn(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.25))
+    return model
+    
+def tinyimagenet_usvgg16_bn_x50(*args, **kwargs) -> VGG: 
+    model = tinyimagenet_usvgg16_bn(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.50))
+    return model
+    
+def tinyimagenet_usvgg16_bn_x75(*args, **kwargs) -> VGG: 
+    model = tinyimagenet_usvgg16_bn(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.75))
+    return model
+    
+def tinyimagenet_usvgg16_bn_x100(*args, **kwargs) -> VGG: 
+    model = tinyimagenet_usvgg16_bn(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 1.00))
+    return model

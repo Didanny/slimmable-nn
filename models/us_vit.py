@@ -33,7 +33,7 @@ class TransformerEncoder(nn.Module):
             nn.GELU(),
             nn.Dropout(dropout),
             USLinear(mlp_hidden, feats, us=[True, False]),
-            nn.GELU(),
+            # nn.GELU(),
             nn.Dropout(dropout),
         )
 
@@ -69,7 +69,19 @@ class MultiHeadSelfAttention(nn.Module):
         return o
     
 class ViT(nn.Module):
-    def __init__(self, in_c:int=3, num_classes:int=10, img_size:int=32, patch:int=8, dropout:float=0., num_layers:int=7, hidden:int=384, mlp_hidden:int=384*4, head:int=8, is_cls_token:bool=True):
+    def __init__(
+        self, 
+        in_c:int=3, 
+        num_classes:int=10, 
+        img_size:int=32, 
+        patch:int=8, 
+        dropout:float=0., 
+        num_layers:int=7,
+        hidden:int=384, 
+        mlp_hidden:int=384*4, 
+        head:int=8, 
+        is_cls_token:bool=True):
+        
         super(ViT, self).__init__()
         # hidden=384
 
@@ -139,14 +151,14 @@ def _vit(
     return model
 
     
-def cifar10_vit(*args, **kwargs) -> ViT: pass
-def cifar100_vit(*args, **kwargs) -> ViT: pass
-def svhn_vit(*args, **kwargs) -> ViT: pass
-def tinyimagenet_vit(*args, **kwargs) -> ViT: pass
+def cifar10_usvit(*args, **kwargs) -> ViT: pass
+def cifar100_usvit(*args, **kwargs) -> ViT: pass
+def svhn_usvit(*args, **kwargs) -> ViT: pass
+def tinyimagenet_usvit(*args, **kwargs) -> ViT: pass
 
 thismodule = sys.modules[__name__]
 for dataset in ["cifar10", "cifar100", "svhn", "tinyimagenet"]:
-    model_name = 'vit'
+    model_name = 'usvit'
     method_name = f"{dataset}_{model_name}"
     if dataset == "cifar100":
         model_urls = cifar100_pretrained_weight_urls
