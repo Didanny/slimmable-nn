@@ -44,6 +44,11 @@ from .us_vit import cifar10_usvit
 
 from .us_vit import tinyimagenet_usvit
 
+from .us_vit import tinyimagenet_usvit_x25
+from .us_vit import tinyimagenet_usvit_x50
+from .us_vit import tinyimagenet_usvit_x75
+from .us_vit import tinyimagenet_usvit_x100
+
 from .us_yolo import USDetectionModel
 
 from .us_yolo_runtime import USDetectionModelRuntime

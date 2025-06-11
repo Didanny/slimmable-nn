@@ -181,3 +181,23 @@ for dataset in ["cifar10", "cifar100", "svhn", "tinyimagenet"]:
                 num_classes=num_classes,
                 image_size=image_size)
     )
+
+def tinyimagenet_usvit_x25(*args, **kwargs) -> ViT: 
+    model = tinyimagenet_usvit(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.25))
+    return model
+
+def tinyimagenet_usvit_x50(*args, **kwargs) -> ViT: 
+    model = tinyimagenet_usvit(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.50))
+    return model
+    
+def tinyimagenet_usvit_x75(*args, **kwargs) -> ViT: 
+    model = tinyimagenet_usvit(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 0.75))
+    return model    
+    
+def tinyimagenet_usvit_x100(*args, **kwargs) -> ViT: 
+    model = tinyimagenet_usvit(*args, **kwargs)
+    model.apply(lambda m: setattr(m, 'width_mult', 1.00))
+    return model
