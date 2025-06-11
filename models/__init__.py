@@ -47,3 +47,18 @@ from .us_vit import tinyimagenet_usvit
 from .us_yolo import USDetectionModel
 
 from .us_yolo_runtime import USDetectionModelRuntime
+
+from .ee_resnet import cifar10_eeresnet20
+from .ee_resnet import cifar10_eeresnet32
+from .ee_resnet import cifar10_eeresnet44
+from .ee_resnet import cifar10_eeresnet56
+
+from .ee_resnet import cifar100_eeresnet20
+from .ee_resnet import cifar100_eeresnet32
+from .ee_resnet import cifar100_eeresnet44
+from .ee_resnet import cifar100_eeresnet56
+
+from .ee_resnet import tinyimagenet_eeresnet20
+from .ee_resnet import tinyimagenet_eeresnet32
+from .ee_resnet import tinyimagenet_eeresnet44
+from .ee_resnet import tinyimagenet_eeresnet56
