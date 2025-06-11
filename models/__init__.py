@@ -13,6 +13,11 @@ from .us_vgg import tinyimagenet_usvgg13_bn
 from .us_vgg import tinyimagenet_usvgg16_bn
 from .us_vgg import tinyimagenet_usvgg19_bn
 
+from .us_vgg import tinyimagenet_usvgg16_bn_x25
+from .us_vgg import tinyimagenet_usvgg16_bn_x50
+from .us_vgg import tinyimagenet_usvgg16_bn_x75
+from .us_vgg import tinyimagenet_usvgg16_bn_x100
+
 from .us_resnet import cifar10_usresnet20
 from .us_resnet import cifar10_usresnet32
 from .us_resnet import cifar10_usresnet44
@@ -27,6 +32,11 @@ from .us_resnet import tinyimagenet_usresnet20
 from .us_resnet import tinyimagenet_usresnet32
 from .us_resnet import tinyimagenet_usresnet44
 from .us_resnet import tinyimagenet_usresnet56
+
+from .us_resnet import tinyimagenet_usresnet56_x25
+from .us_resnet import tinyimagenet_usresnet56_x50
+from .us_resnet import tinyimagenet_usresnet56_x75
+from .us_resnet import tinyimagenet_usresnet56_x100
 
 from .us_vit import cifar100_usvit
 

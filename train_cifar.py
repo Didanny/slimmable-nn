@@ -207,9 +207,6 @@ def train(model: nn.Module, criterion: nn.Module, soft_criterion: nn.Module, opt
             # The sandwich rule
             model.apply(lambda m: setattr(m, 'width_mult', width_mult))
             
-            # DEBUG:
-            print(f'widht_mult: {width_mult}')
-            
             # Track largest and smallest model
             if width_mult in [max_width, min_width]:
                 meter = meters[f'{width_mult}']
@@ -225,8 +222,6 @@ def train(model: nn.Module, criterion: nn.Module, soft_criterion: nn.Module, opt
                 else:
                     loss = forward_loss(model, criterion, inputs, labels, meter)
         
-            # DEBUG:
-            print(f'loss: {loss}')
             (loss / 4).backward()
         
         optimizer.step()
