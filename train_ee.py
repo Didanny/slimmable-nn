@@ -65,7 +65,7 @@ def log_meters(writer: SummaryWriter, meters: dict, prefix: str, step: int):
 
 def train(model: nn.Module, criterion: nn.Module, optimizer: optim.Optimizer,
           scheduler: object, loader: DataLoader, device: torch.device,
-          epoch: int, meters: dict) -> None:
+          epoch: int, meters: dict, weights: list) -> None:
     model.train()
     for inputs, labels in tqdm(loader, desc=f'Train Epoch {epoch}'):
         inputs, labels = inputs.to(device), labels.to(device)
@@ -86,12 +86,14 @@ def train(model: nn.Module, criterion: nn.Module, optimizer: optim.Optimizer,
 
 @torch.no_grad()
 def evaluate(model: nn.Module, criterion: nn.Module, loader: DataLoader,
-             device: torch.device, epoch: int, meters: dict):
+             device: torch.device, epoch: int, meters: dict, weights: list):
     model.eval()
     for inputs, labels in tqdm(loader, desc=f'Val Epoch {epoch}'):
         inputs, labels = inputs.to(device), labels.to(device)
         outputs = model(inputs)
-        loss = sum(criterion(o, labels) for o in outputs)
+        # weighted loss across exits
+        loss = sum(weights[idx] * criterion(out, labels)
+                   for idx, out in enumerate(outputs))
         if meters:
             meters['loss'].update(loss)
             for idx, out in enumerate(outputs):
@@ -122,6 +124,11 @@ def main(opt: argparse.Namespace):
     with torch.no_grad():
         sample_outs = model(sample_inputs.to(device))
     n_exits = len(sample_outs)
+    
+    # linear weights: [1,2,...,n_exits] normalized
+    base_w = [i+1 for i in range(n_exits)]
+    sum_w = sum(base_w)
+    weights = [w / sum_w for w in base_w]
 
     # meters per exit
     train_meters = create_meters(n_exits, device, data.n_cls[opt.dataset])
@@ -157,11 +164,11 @@ def main(opt: argparse.Namespace):
 
     for epoch in range(opt.epochs):
         train(model, criterion, optimizer, scheduler,
-              train_loader, device, epoch, train_meters)
+              train_loader, device, epoch, train_meters, weights)
         log_meters(writer, train_meters, 'train', epoch)
 
         if (epoch + 1) % 5 == 0:
-            evaluate(model, criterion, val_loader, device, epoch, val_meters)
+            evaluate(model, criterion, val_loader, device, epoch, val_meters, weights)
             # fitness based on final exit top1
             final_top1 = val_meters[f'exit{n_exits}_top1'].compute()
             if final_top1 > best_fitness:

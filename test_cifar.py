@@ -22,14 +22,15 @@ from utils import Flags
 
 default_width_mult_list = [0.25, 1.0, 0.275, 0.3, 0.325, 0.35, 0.375, 0.4, 0.425, 0.45, 0.475, 0.5, 0.525, 0.55, 0.575, 0.6, 0.625, 0.65, 0.675, 0.7, 0.725, 0.75, 0.775, 0.8, 0.825, 0.85, 0.875, 0.9, 0.925, 0.95, 0.975]
 default_model_list = [
-    'usresnet20',
-    'usresnet32',
-    'usresnet44',
+    'usvit',
+    # 'usresnet20',
+    # 'usresnet32',
+    # 'usresnet44',
     'usresnet56',
-    'usvgg11_bn',
-    'usvgg13_bn',
+    # 'usvgg11_bn',
+    # 'usvgg13_bn',
     'usvgg16_bn',
-    'usvgg19_bn',
+    # 'usvgg19_bn',
 ]
 
 def parse_opt() -> argparse.Namespace:
@@ -185,7 +186,8 @@ def main(opt: argparse.Namespace):
         # print(results[i]) 
         
     # Save results
-    with open('./results/us_results_cifar.csv', 'w') as outfile:
+    d = 'cifar' if 'cifar' in opt.dataset else 'tinyimagenet'
+    with open(f'./results/us_results_{d}.csv', 'w') as outfile:
         writer = csv.writer(outfile, delimiter=',')
         writer.writerow(['Model Name'] + [str(w) for w in sorted(FLAGS.width_mult_list, reverse=True)])
         for row in results:
